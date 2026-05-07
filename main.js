@@ -18,6 +18,8 @@ const btnClear = document.getElementById('btn-clear');
 const btnClearAll = document.getElementById('btn-clear-all');
 const btnDownload = document.getElementById('btn-download');
 const colorPicker = document.getElementById('colorPicker');
+const thicknessSlider = document.getElementById('thicknessSlider');
+const thicknessPreview = document.getElementById('thickness-preview');
 const loadingOverlay = document.getElementById('loadingOverlay');
 const pageIndicator = document.getElementById('page-indicator');
 const btnModeView = document.getElementById('btn-mode-view');
@@ -202,13 +204,29 @@ const setMode = (mode) => {
 btnModeView.addEventListener('click', () => setMode('view'));
 btnModeSign.addEventListener('click', () => setMode('sign'));
 
+// ----- Thickness Preview -----
+
+const drawThicknessPreview = () => {
+  const ctx = thicknessPreview.getContext('2d');
+  ctx.clearRect(0, 0, thicknessPreview.width, thicknessPreview.height);
+  ctx.strokeStyle = colorPicker.value;
+  ctx.lineWidth = parseInt(thicknessSlider.value, 10);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(8, 14);
+  ctx.bezierCurveTo(20, 4, 35, 22, 50, 10);
+  ctx.bezierCurveTo(60, 2, 68, 18, 72, 12);
+  ctx.stroke();
+};
+
 // ----- Signature Drawing Engine -----
 
 const setupDrawingEvents = (sigCanvas) => {
   const ctx = sigCanvas.getContext('2d');
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.lineWidth = 3;
+  ctx.lineWidth = parseInt(thicknessSlider.value, 10);
   ctx.strokeStyle = colorPicker.value;
 
   const getPos = (e) => {
@@ -225,6 +243,7 @@ const setupDrawingEvents = (sigCanvas) => {
     isDrawing = true;
     activeSignatureCanvas = sigCanvas;
     ctx.strokeStyle = colorPicker.value;
+    ctx.lineWidth = parseInt(thicknessSlider.value, 10);
     const pos = getPos(e);
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
@@ -259,7 +278,19 @@ colorPicker.addEventListener('input', (e) => {
   pageCanvases.forEach(({ sigCanvas }) => {
     sigCanvas.getContext('2d').strokeStyle = e.target.value;
   });
+  drawThicknessPreview();
 });
+
+// Thickness slider updates line width and redraws preview
+thicknessSlider.addEventListener('input', () => {
+  const width = parseInt(thicknessSlider.value, 10);
+  pageCanvases.forEach(({ sigCanvas }) => {
+    sigCanvas.getContext('2d').lineWidth = width;
+  });
+  drawThicknessPreview();
+});
+
+drawThicknessPreview();
 
 // Clear signature on the most visible page
 btnClear.addEventListener('click', () => {
