@@ -52,10 +52,9 @@ body {
 .header-image {
   display: block;
   width: 100%;
-  height: auto;
-  max-height: 160px;
+  height: 200px;
   object-fit: cover;
-  object-position: center;
+  object-position: center 25%;
 }
 
 .glass-panel {
