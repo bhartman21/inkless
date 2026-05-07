@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Signify - Secure Local eSignatures</title>
+    <link rel="stylesheet" href="./style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div class="app-container">
+      <header class="glass-header">
+        <h1>Signify</h1>
+        <p>Sign documents locally. Private, secure, and fast.</p>
+      </header>
+
+      <main class="main-content">
+        <!-- Initial Dropzone View -->
+        <div id="dropzone" class="glass-panel dropzone active">
+          <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          <h2>Drag & Drop your Document</h2>
+          <p>or click to browse</p>
+          <p class="file-hint">Supports PDF, PNG, JPG</p>
+          <input type="file" id="fileInput" accept="application/pdf, image/png, image/jpeg" hidden />
+        </div>
+
+        <!-- Editor View (Hidden initially) -->
+        <div id="editor-container" class="glass-panel editor-container">
+          <div class="toolbar">
+            <button id="btn-close" class="btn btn-secondary">Close</button>
+            <div class="toolbar-center">
+              <div class="mode-toggle">
+                <button id="btn-mode-view" class="btn-mode active">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  View
+                </button>
+                <button id="btn-mode-sign" class="btn-mode">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                  Sign
+                </button>
+              </div>
+              <span id="page-indicator" class="page-indicator"></span>
+              <label for="colorPicker">Color:</label>
+              <input type="color" id="colorPicker" value="#000000" />
+              <button id="btn-clear" class="btn btn-outline">Clear Page</button>
+              <button id="btn-clear-all" class="btn btn-outline">Clear All</button>
+            </div>
+            <button id="btn-download" class="btn btn-primary">Download Signed PDF</button>
+          </div>
+          
+          <!-- Scrollable pages container -->
+          <div id="pages-container" class="pages-container"></div>
+
+          <div id="loadingOverlay" class="loading-overlay hidden">
+            <div class="spinner"></div>
+            <p>Processing...</p>
+          </div>
+        </div>
+      </main>
+      
+      <footer class="footer">
+        <p>All processing is done locally in your browser. No data leaves your device.</p>
+      </footer>
+    </div>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>
