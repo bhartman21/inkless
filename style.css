@@ -38,8 +38,7 @@ body {
 }
 
 .glass-header {
-  text-align: center;
-  padding: 2rem;
+  padding: 0;
   background: var(--glass-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -47,20 +46,16 @@ body {
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
   animation: fadeIn 0.5s ease-out;
+  overflow: hidden;
 }
 
-.glass-header h1 {
-  font-size: 2.5rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-  background: linear-gradient(to right, #60a5fa, #a78bfa);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.glass-header p {
-  color: var(--text-secondary);
-  font-size: 1.1rem;
+.header-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 160px;
+  object-fit: cover;
+  object-position: center;
 }
 
 .glass-panel {
