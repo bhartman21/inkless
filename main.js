@@ -1,6 +1,10 @@
 import './style.css';
 import * as pdfjsLib from 'pdfjs-dist';
 import { PDFDocument } from 'pdf-lib';
+import { detectBounds } from './boundary-detect.js'
+import { PlaceModal } from './place-modal.js'
+import { SignatureSticker } from './sig-sticker.js'
+import { isDoubleTap } from './double-tap.js'
 
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -19,11 +23,14 @@ const btnClearAll = document.getElementById('btn-clear-all');
 const btnDownload = document.getElementById('btn-download');
 const colorPicker = document.getElementById('colorPicker');
 const thicknessSlider = document.getElementById('thicknessSlider');
-const thicknessPreview = document.getElementById('thickness-preview');
 const loadingOverlay = document.getElementById('loadingOverlay');
 const pageIndicator = document.getElementById('page-indicator');
 const btnModeView = document.getElementById('btn-mode-view');
 const btnModeSign = document.getElementById('btn-mode-sign');
+const btnModePlace = document.getElementById('btn-mode-place')
+const signingControls = document.getElementById('signing-controls')
+const btnClearToggle = document.getElementById('btn-clear-toggle')
+const clearMenu = document.getElementById('clear-menu')
 
 // State
 let currentMode = 'view'; // 'view' or 'sign'
@@ -35,6 +42,24 @@ let pdfDocBytes = null; // Original PDF bytes for export
 let imageBytes = null; // Original image bytes for export
 let pageCanvases = []; // Array of { docCanvas, sigCanvas, width, height } per page
 let currentVisiblePage = 0; // Track which page is most visible for "Clear Page"
+let activeStickers = []
+let placeModal = null
+
+const hasUncommittedStickers = () =>
+  activeStickers.some((s) => document.body.contains(s.el))
+
+const discardAllStickers = () => {
+  activeStickers.forEach((s) => s.remove())
+  activeStickers = []
+}
+
+const guardStickers = (onProceed) => {
+  if (!hasUncommittedStickers()) { onProceed(); return }
+  if (confirm('You have uncommitted signatures. Discard them and continue?')) {
+    discardAllStickers()
+    onProceed()
+  }
+}
 
 // ----- File Handling -----
 
@@ -48,6 +73,10 @@ const handleFile = async (file) => {
 
   try {
     const arrayBuffer = await file.arrayBuffer();
+
+    // Switch UI before rendering so container width is measurable
+    dropzone.classList.remove('active');
+    editorContainer.classList.add('active');
 
     if (file.type === 'application/pdf') {
       currentFileType = 'pdf';
@@ -63,9 +92,6 @@ const handleFile = async (file) => {
       return;
     }
 
-    // Switch UI
-    dropzone.classList.remove('active');
-    editorContainer.classList.add('active');
     updatePageIndicator();
 
   } catch (error) {
@@ -78,17 +104,22 @@ const handleFile = async (file) => {
 
 // ----- Multi-page PDF Rendering -----
 
+const availableWidth = () => {
+  const w = pagesContainer.clientWidth - 32 // subtract 1rem padding on each side
+  return Math.max(w || window.innerWidth - 96, 300)
+}
+
 const renderPDF = async (data) => {
   const loadingTask = pdfjsLib.getDocument({ data: data.slice(0) });
   const pdf = await loadingTask.promise;
   const numPages = pdf.numPages;
+  const maxW = availableWidth()
 
   for (let i = 1; i <= numPages; i++) {
     const page = await pdf.getPage(i);
 
-    // Calculate scale to fit container (using 1200 as a high-res base)
     const unscaledViewport = page.getViewport({ scale: 1 });
-    const scale = Math.min(1200 / unscaledViewport.width, 3);
+    const scale = Math.min(maxW / unscaledViewport.width, 3);
     const viewport = page.getViewport({ scale });
 
     const { docCanvas, sigCanvas } = createPageCanvasPair(viewport.width, viewport.height, i);
@@ -112,7 +143,7 @@ const renderImage = (file) => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      const maxWidth = 1200;
+      const maxWidth = availableWidth()
       let scale = 1;
       if (img.width > maxWidth) {
         scale = maxWidth / img.width;
@@ -182,6 +213,7 @@ const createPageCanvasPair = (width, height, pageNum) => {
 
   // Setup drawing on this signature canvas
   setupDrawingEvents(sigCanvas);
+  setupPlaceEvents(sigCanvas, docCanvas);
 
   return { docCanvas, sigCanvas };
 };
@@ -189,36 +221,19 @@ const createPageCanvasPair = (width, height, pageNum) => {
 // ----- Mode Switching -----
 
 const setMode = (mode) => {
-  currentMode = mode;
-  if (mode === 'sign') {
-    btnModeSign.classList.add('active');
-    btnModeView.classList.remove('active');
-    pagesContainer.classList.add('signing-active');
-  } else {
-    btnModeSign.classList.remove('active');
-    btnModeView.classList.add('active');
-    pagesContainer.classList.remove('signing-active');
-  }
+  currentMode = mode
+  btnModeSign.classList.toggle('active', mode === 'sign')
+  btnModeView.classList.toggle('active', mode === 'view')
+  btnModePlace.classList.toggle('active', mode === 'place')
+  pagesContainer.classList.toggle('signing-active', mode === 'sign')
+  pagesContainer.classList.toggle('placing-active', mode === 'place')
+  signingControls.classList.toggle('hidden', mode === 'view')
 };
 
-btnModeView.addEventListener('click', () => setMode('view'));
-btnModeSign.addEventListener('click', () => setMode('sign'));
+btnModeView.addEventListener('click', () => guardStickers(() => setMode('view')))
+btnModeSign.addEventListener('click', () => guardStickers(() => setMode('sign')))
+btnModePlace.addEventListener('click', () => setMode('place'))
 
-// ----- Thickness Preview -----
-
-const drawThicknessPreview = () => {
-  const ctx = thicknessPreview.getContext('2d');
-  ctx.clearRect(0, 0, thicknessPreview.width, thicknessPreview.height);
-  ctx.strokeStyle = colorPicker.value;
-  ctx.lineWidth = parseInt(thicknessSlider.value, 10);
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(8, 14);
-  ctx.bezierCurveTo(20, 4, 35, 22, 50, 10);
-  ctx.bezierCurveTo(60, 2, 68, 18, 72, 12);
-  ctx.stroke();
-};
 
 // ----- Signature Drawing Engine -----
 
@@ -240,6 +255,7 @@ const setupDrawingEvents = (sigCanvas) => {
   };
 
   sigCanvas.addEventListener('pointerdown', (e) => {
+    if (currentMode !== 'sign') return
     isDrawing = true;
     activeSignatureCanvas = sigCanvas;
     ctx.strokeStyle = colorPicker.value;
@@ -273,41 +289,76 @@ const setupDrawingEvents = (sigCanvas) => {
   sigCanvas.addEventListener('pointercancel', stop);
 };
 
+const setupPlaceEvents = (sigCanvas, docCanvas) => {
+  const wrapper = sigCanvas.parentElement
+  let lastTap = null
+
+  sigCanvas.addEventListener('pointerdown', (e) => {
+    if (currentMode !== 'place') return
+    if (placeModal && placeModal.modal.classList.contains('active')) return
+    const wrapperRect = wrapper.getBoundingClientRect()
+    const tap = { time: Date.now(), x: e.clientX - wrapperRect.left, y: e.clientY - wrapperRect.top }
+
+    if (isDoubleTap(lastTap, tap)) {
+      lastTap = null
+      const bounds = detectBounds(docCanvas, tap.x, tap.y, wrapperRect)
+      // Cap sticker to viewport so it's always fully visible and manipulable
+      bounds.w = Math.min(bounds.w, window.innerWidth  * 0.92)
+      bounds.h = Math.min(bounds.h, window.innerHeight * 0.92)
+      placeModal.open((dataURL) => {
+        const sticker = new SignatureSticker(wrapper, sigCanvas, dataURL, bounds)
+        activeStickers.push(sticker)
+      })
+    } else {
+      lastTap = tap
+    }
+  })
+}
+
 // Color picker updates future strokes on all canvases
 colorPicker.addEventListener('input', (e) => {
   pageCanvases.forEach(({ sigCanvas }) => {
     sigCanvas.getContext('2d').strokeStyle = e.target.value;
   });
-  drawThicknessPreview();
 });
 
-// Thickness slider updates line width and redraws preview
+// Thickness slider updates line width on all canvases
 thicknessSlider.addEventListener('input', () => {
   const width = parseInt(thicknessSlider.value, 10);
   pageCanvases.forEach(({ sigCanvas }) => {
     sigCanvas.getContext('2d').lineWidth = width;
   });
-  drawThicknessPreview();
 });
 
-drawThicknessPreview();
+placeModal = new PlaceModal(colorPicker, thicknessSlider)
+
+// Clear dropdown toggle
+btnClearToggle.addEventListener('click', (e) => {
+  e.stopPropagation()
+  clearMenu.classList.toggle('open')
+})
+document.addEventListener('click', () => clearMenu.classList.remove('open'))
 
 // Clear signature on the most visible page
 btnClear.addEventListener('click', () => {
   if (pageCanvases[currentVisiblePage]) {
-    const { sigCanvas } = pageCanvases[currentVisiblePage];
-    const ctx = sigCanvas.getContext('2d');
-    ctx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+    const { sigCanvas } = pageCanvases[currentVisiblePage]
+    sigCanvas.getContext('2d').clearRect(0, 0, sigCanvas.width, sigCanvas.height)
+    const wrapper = sigCanvas.parentElement
+    activeStickers = activeStickers.filter((s) => {
+      if (s.wrapper === wrapper) { s.remove(); return false }
+      return true
+    })
   }
-});
+})
 
 // Clear all signatures on all pages
 btnClearAll.addEventListener('click', () => {
   pageCanvases.forEach(({ sigCanvas }) => {
-    const ctx = sigCanvas.getContext('2d');
-    ctx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
-  });
-});
+    sigCanvas.getContext('2d').clearRect(0, 0, sigCanvas.width, sigCanvas.height)
+  })
+  discardAllStickers()
+})
 
 // Track which page is most visible for "Clear Page Signature"
 const observePages = () => {
@@ -339,91 +390,82 @@ const updatePageIndicator = () => {
 
 // ----- Export Functionality -----
 
-btnDownload.addEventListener('click', async () => {
-  showLoading();
-  try {
-    let outputPdf;
+btnDownload.addEventListener('click', () => {
+  guardStickers(async () => {
+    showLoading()
+    try {
+      let outputPdf
 
-    if (currentFileType === 'pdf') {
-      // Load original PDF and overlay signatures on each page
-      outputPdf = await PDFDocument.load(pdfDocBytes);
-      const pages = outputPdf.getPages();
+      if (currentFileType === 'pdf') {
+        outputPdf = await PDFDocument.load(pdfDocBytes)
+        const pages = outputPdf.getPages()
 
-      for (let i = 0; i < pageCanvases.length; i++) {
-        const { sigCanvas } = pageCanvases[i];
-        const page = pages[i];
-        if (!page) continue;
-
-        const sigDataUrl = sigCanvas.toDataURL('image/png');
-        const sigBytes = await fetch(sigDataUrl).then((r) => r.arrayBuffer());
-        const sigImage = await outputPdf.embedPng(sigBytes);
-
-        const { width: pageW, height: pageH } = page.getSize();
-        page.drawImage(sigImage, {
-          x: 0,
-          y: 0,
-          width: pageW,
-          height: pageH,
-        });
-      }
-    } else {
-      // Image: create new PDF with single page
-      outputPdf = await PDFDocument.create();
-      let image;
-      if (currentFile.type === 'image/png') {
-        image = await outputPdf.embedPng(imageBytes);
+        for (let i = 0; i < pageCanvases.length; i++) {
+          const { sigCanvas } = pageCanvases[i]
+          const page = pages[i]
+          if (!page) continue
+          const sigDataUrl = sigCanvas.toDataURL('image/png')
+          const sigBytes   = await fetch(sigDataUrl).then((r) => r.arrayBuffer())
+          const sigImage   = await outputPdf.embedPng(sigBytes)
+          const { width: pageW, height: pageH } = page.getSize()
+          page.drawImage(sigImage, { x: 0, y: 0, width: pageW, height: pageH })
+        }
       } else {
-        image = await outputPdf.embedJpg(imageBytes);
+        outputPdf = await PDFDocument.create()
+        let image
+        if (currentFile.type === 'image/png') {
+          image = await outputPdf.embedPng(imageBytes)
+        } else {
+          image = await outputPdf.embedJpg(imageBytes)
+        }
+        const { width, height } = image.scale(1)
+        const page = outputPdf.addPage([width, height])
+        page.drawImage(image, { x: 0, y: 0, width, height })
+
+        const { sigCanvas } = pageCanvases[0]
+        const sigDataUrl = sigCanvas.toDataURL('image/png')
+        const sigBytes   = await fetch(sigDataUrl).then((r) => r.arrayBuffer())
+        const sigImage   = await outputPdf.embedPng(sigBytes)
+        page.drawImage(sigImage, { x: 0, y: 0, width, height })
       }
-      const { width, height } = image.scale(1);
-      const page = outputPdf.addPage([width, height]);
-      page.drawImage(image, { x: 0, y: 0, width, height });
 
-      // Overlay signature
-      const { sigCanvas } = pageCanvases[0];
-      const sigDataUrl = sigCanvas.toDataURL('image/png');
-      const sigBytes = await fetch(sigDataUrl).then((r) => r.arrayBuffer());
-      const sigImage = await outputPdf.embedPng(sigBytes);
-      page.drawImage(sigImage, { x: 0, y: 0, width, height });
+      const pdfBytes      = await outputPdf.save()
+      const blob          = new Blob([pdfBytes], { type: 'application/pdf' })
+      const url           = URL.createObjectURL(blob)
+      const originalName  = currentFile.name.replace(/\.[^/.]+$/, '')
+      const a             = document.createElement('a')
+      a.href = url
+      a.download = `${originalName}_SIGNED.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Export failed:', error)
+      alert('Failed to generate signed PDF.')
+    } finally {
+      hideLoading()
     }
-
-    // Save and download
-    const pdfBytes = await outputPdf.save();
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-
-    // Build filename: originalname_SIGNED.pdf
-    const originalName = currentFile.name.replace(/\.[^/.]+$/, '');
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${originalName}_SIGNED.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-  } catch (error) {
-    console.error('Export failed:', error);
-    alert('Failed to generate signed PDF.');
-  } finally {
-    hideLoading();
-  }
-});
+  })
+})
 
 // ----- UI Flow & Utilities -----
 
 btnClose.addEventListener('click', () => {
-  editorContainer.classList.remove('active');
-  dropzone.classList.add('active');
-  currentFile = null;
-  currentFileType = null;
-  pdfDocBytes = null;
-  imageBytes = null;
-  pageCanvases = [];
-  pagesContainer.innerHTML = '';
-  fileInput.value = '';
-  setMode('view'); // Reset to view mode
-});
+  guardStickers(() => {
+    editorContainer.classList.remove('active')
+    dropzone.classList.add('active')
+    currentFile = null
+    currentFileType = null
+    pdfDocBytes = null
+    imageBytes = null
+    pageCanvases = []
+    activeStickers = []
+    pagesContainer.innerHTML = ''
+    fileInput.value = ''
+    setMode('view')
+  })
+})
 
 // Drag and drop setup
 dropzone.addEventListener('dragover', (e) => {

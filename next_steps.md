@@ -2,16 +2,22 @@
 
 This document outlines the remaining tasks and potential enhancements to move the current prototype into a fully polished production-ready application.
 
+## Recently Completed
+- [x] **Place Mode**: Double-tap a signature field on the document to detect its bounds, draw your signature in a full-screen modal, then drag and resize the resulting sticker before committing it to the page.
+- [x] **Responsive Toolbar**: Single-row toolbar with mode-aware signing controls (hidden in View mode), a Clear dropdown, and two CSS breakpoints — tablet (≤768px) hides mode-toggle labels and page indicator; phone (≤540px) hides all button text.
+- [x] **Font Awesome Icons**: Replaced all inline SVGs with Font Awesome 6 Free (`fa-eye`, `fa-signature`, `fa-stamp`, `fa-eraser`, `fa-download`, etc.) for consistent cross-platform rendering.
+- [x] **PDF/Image Scaling to Fit Screen**: Documents now render to the available container width instead of a hardcoded 1200px, so every page fits the viewport without horizontal scrolling.
+- [x] **Signing Modal Sizing**: The Place-mode drawing modal is now 92% of the viewport with rounded corners, floating over a dark backdrop instead of filling the entire screen.
+- [x] **Variable Pen Thickness**: Slider in the toolbar to adjust signature line width with live preview.
+
 ## 1. Core Feature Polishing
 - [ ] **Undo/Redo Functionality**: Implement a stroke history buffer so users can correct mistakes without clearing the entire page.
-- [ ] **Variable Pen Thickness**: Add a slider to the toolbar to allow finer or thicker signature lines.
 - [ ] **Text Annotations**: Allow users to click and type (e.g., for "Date" or "Printed Name") to be overlaid on the PDF alongside the signature.
 - [ ] **Customizable Cursor**: Change the crosshair to a pen or pencil icon when hovering over the document to improve the "signing" feel.
 
 ## 2. UI & UX Enhancements
 - [ ] **Page Thumbnail Sidebar**: For long documents, add a sidebar with thumbnails for quick jumping between pages.
 - [ ] **Smooth Zooming**: Implement Zoom In/Out controls to help users sign small fields accurately.
-- [ ] **Mobile Optimization**: Double-check the "palm rejection" and layout on tablets (iPad/Stylus) to ensure the floating toolbar doesn't obstruct the signing area.
 - [ ] **Dark Mode Toggle**: While the UI is currently dark, adding a toggle for a light/system theme would improve accessibility.
 
 ## 3. Technical Robustness
@@ -29,4 +35,4 @@ This document outlines the remaining tasks and potential enhancements to move th
 - [ ] **PWA Support**: Turn the app into a Progressive Web App (PWA) so users can "install" it on their desktop and use it offline.
 
 ---
-*Generated on 2026-05-06*
+*Generated on 2026-05-06 · Updated 2026-05-10*

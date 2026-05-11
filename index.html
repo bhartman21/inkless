@@ -7,6 +7,7 @@
     <title>Inkless - Sign Anything, Print Nothing</title>
     <link rel="stylesheet" href="./style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   </head>
   <body>
     <div class="app-container">
@@ -17,7 +18,7 @@
       <main class="main-content">
         <!-- Initial Dropzone View -->
         <div id="dropzone" class="glass-panel dropzone active">
-          <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          <i class="upload-icon fa-solid fa-file-arrow-up"></i>
           <h2>Drag & Drop your Document</h2>
           <p>or click to browse</p>
           <p class="file-hint">Supports PDF, PNG, JPG</p>
@@ -27,28 +28,46 @@
         <!-- Editor View (Hidden initially) -->
         <div id="editor-container" class="glass-panel editor-container">
           <div class="toolbar">
-            <button id="btn-close" class="btn btn-secondary">Close</button>
+            <button id="btn-close" class="btn btn-secondary">
+              <i class="fa-solid fa-xmark"></i>
+              <span class="btn-label">Close</span>
+            </button>
             <div class="toolbar-center">
               <div class="mode-toggle">
                 <button id="btn-mode-view" class="btn-mode active">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                  View
+                  <i class="fa-solid fa-eye"></i>
+                  <span class="btn-label">View</span>
                 </button>
                 <button id="btn-mode-sign" class="btn-mode">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-                  Sign
+                  <i class="fa-solid fa-signature"></i>
+                  <span class="btn-label">Sign</span>
+                </button>
+                <button id="btn-mode-place" class="btn-mode">
+                  <i class="fa-solid fa-stamp"></i>
+                  <span class="btn-label">Place</span>
                 </button>
               </div>
+              <div id="signing-controls" class="signing-controls hidden">
+                <input type="color" id="colorPicker" value="#000000" title="Ink color" />
+                <input type="range" id="thicknessSlider" min="1" max="8" value="3" title="Pen size" />
+                <div class="clear-dropdown">
+                  <button id="btn-clear-toggle" class="btn btn-outline clear-toggle">
+                    <i class="fa-solid fa-eraser"></i>
+                    <span class="btn-label">Clear</span>
+                    <i class="fa-solid fa-chevron-down" style="font-size:0.7em"></i>
+                  </button>
+                  <div class="clear-menu" id="clear-menu">
+                    <button id="btn-clear" class="clear-option">Clear Page</button>
+                    <button id="btn-clear-all" class="clear-option">Clear All</button>
+                  </div>
+                </div>
+              </div>
               <span id="page-indicator" class="page-indicator"></span>
-              <label for="colorPicker">Color:</label>
-              <input type="color" id="colorPicker" value="#000000" />
-              <label for="thicknessSlider">Size:</label>
-              <input type="range" id="thicknessSlider" min="1" max="8" value="3" />
-              <canvas id="thickness-preview" class="thickness-preview" width="80" height="24"></canvas>
-              <button id="btn-clear" class="btn btn-outline">Clear Page</button>
-              <button id="btn-clear-all" class="btn btn-outline">Clear All</button>
             </div>
-            <button id="btn-download" class="btn btn-primary">Download Signed PDF</button>
+            <button id="btn-download" class="btn btn-primary">
+              <i class="fa-solid fa-download"></i>
+              <span class="btn-label">Save PDF</span>
+            </button>
           </div>
           
           <!-- Scrollable pages container -->
@@ -67,5 +86,18 @@
     </div>
     <script type="module" src="/main.js"></script>
     <a href="https://www.buymeacoffee.com/bhartman21" target="_blank" rel="noopener noreferrer" class="bmc-button">☕ Buy me a coffee</a>
+    <div id="place-modal">
+      <div class="place-modal-inner">
+        <div class="place-modal-toolbar">
+          <button id="place-btn-clear" class="btn btn-outline">Clear</button>
+          <span class="place-modal-hint">Draw your signature</span>
+          <div class="place-modal-actions">
+            <button id="place-btn-cancel" class="btn btn-secondary">Cancel</button>
+            <button id="place-btn-apply" class="btn btn-primary">Apply</button>
+          </div>
+        </div>
+        <canvas id="place-canvas"></canvas>
+      </div>
+    </div>
   </body>
 </html>
